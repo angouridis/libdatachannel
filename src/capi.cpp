@@ -436,6 +436,14 @@ int rtcCreatePeerConnection(const rtcConfiguration *config) {
 		if (config->bindAddress)
 			c.bindAddress = string(config->bindAddress);
 
+		// Certificates and private keys (optional)
+		if (config->certificatePemFile)
+			c.certificatePemFile = string(config->certificatePemFile);
+		if (config->keyPemFile)
+			c.keyPemFile = string(config->keyPemFile);
+		if (config->keyPemPass)
+			c.keyPemPass = string(config->keyPemPass);
+
 		if (config->portRangeBegin > 0 || config->portRangeEnd > 0) {
 			c.portRangeBegin = config->portRangeBegin;
 			c.portRangeEnd = config->portRangeEnd;
