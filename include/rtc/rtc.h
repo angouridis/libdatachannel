@@ -213,6 +213,7 @@ RTC_C_EXPORT int rtcSetGatheringStateChangeCallback(int pc, rtcGatheringStateCal
 RTC_C_EXPORT int rtcSetSignalingStateChangeCallback(int pc, rtcSignalingStateCallbackFunc cb);
 
 RTC_C_EXPORT int rtcSetLocalDescription(int pc, const char *type); // type may be NULL
+RTC_C_EXPORT int rtcSetLocalDescriptionWithIce(int pc, const char *type, const char *iceUfrag, const char *icePwd); // type may be NULL, iceUfrag and icePwd may be NULL
 RTC_C_EXPORT int rtcSetRemoteDescription(int pc, const char *sdp, const char *type);
 RTC_C_EXPORT int rtcAddRemoteCandidate(int pc, const char *cand, const char *mid);
 
