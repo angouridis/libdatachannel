@@ -97,6 +97,7 @@ public:
 	bool getSelectedCandidatePair(Candidate *local, Candidate *remote);
 
 	void setLocalDescription(Description::Type type = Description::Type::Unspec, LocalDescriptionInit init = {});
+	void setIceAttributes(string iceUfrag, string icePwd); // Set ICE attributes directly without generating local description
 	void gatherLocalCandidates(std::vector<IceServer> additionalIceServers = {});
 	void setRemoteDescription(Description description);
 	void addRemoteCandidate(Candidate candidate);

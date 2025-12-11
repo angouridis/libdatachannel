@@ -141,8 +141,16 @@ IceTransport::IceTransport(const Configuration &config, candidate_callback candi
 }
 
 void IceTransport::setIceAttributes(string uFrag, string pwd) {
-	if (juice_set_local_ice_attributes(mAgent.get(), uFrag.c_str(), pwd.c_str()) < 0) {
-		throw std::invalid_argument("Invalid ICE attributes");
+	int ret = juice_set_local_ice_attributes(mAgent.get(), uFrag.c_str(), pwd.c_str());
+	if (ret < 0) {
+		if (ret == JUICE_ERR_FAILED) {
+			PLOG_WARNING << "Failed to set ICE attributes - candidate gathering may have already started";
+			throw std::runtime_error("Cannot set ICE attributes: candidate gathering already started");
+		} else {
+			PLOG_ERROR << "Invalid ICE attributes: ufrag=\"" << uFrag << "\" (len=" << uFrag.length() 
+			          << "), pwd=\"" << pwd << "\" (len=" << pwd.length() << ")";
+			throw std::invalid_argument("Invalid ICE attributes");
+		}
 	}
 }
 

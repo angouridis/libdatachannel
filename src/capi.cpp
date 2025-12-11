@@ -28,6 +28,9 @@ namespace {
 std::unordered_map<int, shared_ptr<PeerConnection>> peerConnectionMap;
 std::unordered_map<int, shared_ptr<DataChannel>> dataChannelMap;
 std::unordered_map<int, shared_ptr<Track>> trackMap;
+#if !USE_NICE
+std::unordered_map<int, shared_ptr<IceUdpMuxListener>> iceUdpMuxListenerMap;
+#endif
 #if RTC_ENABLE_MEDIA
 std::unordered_map<int, shared_ptr<RtcpSrReporter>> rtcpSrReporterMap;
 std::unordered_map<int, shared_ptr<RtpPacketizationConfig>> rtpConfigMap;
@@ -75,6 +78,16 @@ shared_ptr<Track> getTrack(int id) {
 		throw std::invalid_argument("Track ID does not exist");
 }
 
+#if !USE_NICE
+shared_ptr<IceUdpMuxListener> getIceUdpMuxListener(int id) {
+	std::lock_guard lock(mutex);
+	if (auto it = iceUdpMuxListenerMap.find(id); it != iceUdpMuxListenerMap.end())
+		return it->second;
+	else
+		throw std::invalid_argument("IceUdpMuxListener ID does not exist");
+}
+#endif
+
 int emplacePeerConnection(shared_ptr<PeerConnection> ptr) {
 	std::lock_guard lock(mutex);
 	int pc = ++lastId;
@@ -98,6 +111,16 @@ int emplaceTrack(shared_ptr<Track> ptr) {
 	userPointerMap.emplace(std::make_pair(tr, nullptr));
 	return tr;
 }
+
+#if !USE_NICE
+int emplaceIceUdpMuxListener(shared_ptr<IceUdpMuxListener> ptr) {
+	std::lock_guard lock(mutex);
+	int id = ++lastId;
+	iceUdpMuxListenerMap.emplace(std::make_pair(id, ptr));
+	userPointerMap.emplace(std::make_pair(id, nullptr));
+	return id;
+}
+#endif
 
 void erasePeerConnection(int pc) {
 	std::lock_guard lock(mutex);
@@ -123,6 +146,15 @@ void eraseTrack(int tr) {
 #endif
 	userPointerMap.erase(tr);
 }
+
+#if !USE_NICE
+void eraseIceUdpMuxListener(int id) {
+	std::lock_guard lock(mutex);
+	if (iceUdpMuxListenerMap.erase(id) == 0)
+		throw std::invalid_argument("IceUdpMuxListener ID does not exist");
+	userPointerMap.erase(id);
+}
+#endif
 
 size_t eraseAll() {
 	std::lock_guard lock(mutex);
@@ -584,6 +616,19 @@ int rtcSetLocalDescriptionWithIce(int pc, const char *type, const char *iceUfrag
 	});
 }
 
+int rtcSetIceAttributes(int pc, const char *iceUfrag, const char *icePwd) {
+	return wrap([&] {
+		auto peerConnection = getPeerConnection(pc);
+		
+		if (!iceUfrag || !icePwd)
+			throw std::invalid_argument("ICE ufrag and pwd must be provided");
+		
+		// Use the public API method to set ICE attributes
+		peerConnection->setIceAttributes(string(iceUfrag), string(icePwd));
+		return RTC_ERR_SUCCESS;
+	});
+}
+
 int rtcSetRemoteDescription(int pc, const char *sdp, const char *type) {
 	return wrap([&] {
 		auto peerConnection = getPeerConnection(pc);
@@ -717,6 +762,64 @@ bool rtcIsNegotiationNeeded(int pc) {
 	return wrap([&] { return getPeerConnection(pc)->negotiationNeeded() ? 0 : 1; }) == 0 ? true
 	                                                                                     : false;
 }
+
+// ICE UDP mux listener (libjuice only)
+#if !USE_NICE
+int rtcCreateIceUdpMuxListener(uint16_t port, const char *bindAddress) {
+	return wrap([&] {
+		optional<string> bind;
+		if (bindAddress && *bindAddress)
+			bind = string(bindAddress);
+		auto listener = std::make_shared<IceUdpMuxListener>(port, std::move(bind));
+		return emplaceIceUdpMuxListener(listener);
+	});
+}
+
+int rtcDeleteIceUdpMuxListener(int listener) {
+	return wrap([&] {
+		auto l = getIceUdpMuxListener(listener);
+		l->stop();
+		eraseIceUdpMuxListener(listener);
+		return RTC_ERR_SUCCESS;
+	});
+}
+
+int rtcIceUdpMuxListenerStop(int listener) {
+	return wrap([&] {
+		auto l = getIceUdpMuxListener(listener);
+		l->stop();
+		return RTC_ERR_SUCCESS;
+	});
+}
+
+uint16_t rtcGetIceUdpMuxListenerPort(int listener) {
+	return wrap([&] { return int(getIceUdpMuxListener(listener)->port()); });
+}
+
+int rtcSetIceUdpMuxUnhandledStunCallback(int listener, rtcIceUdpMuxUnhandledStunCallbackFunc cb) {
+	return wrap([&] {
+		auto l = getIceUdpMuxListener(listener);
+		if (cb) {
+			l->OnUnhandledStunRequest([listener, cb](IceUdpMuxRequest req) {
+				if (auto ptr = getUserPointer(listener))
+					cb(listener, req.localUfrag.c_str(), req.remoteUfrag.c_str(),
+					   req.remoteAddress.c_str(), req.remotePort, *ptr);
+			});
+		} else {
+			l->OnUnhandledStunRequest(nullptr);
+		}
+		return RTC_ERR_SUCCESS;
+	});
+}
+#else
+int rtcCreateIceUdpMuxListener(uint16_t, const char *) { return RTC_ERR_NOT_AVAIL; }
+int rtcDeleteIceUdpMuxListener(int) { return RTC_ERR_NOT_AVAIL; }
+int rtcIceUdpMuxListenerStop(int) { return RTC_ERR_NOT_AVAIL; }
+uint16_t rtcGetIceUdpMuxListenerPort(int) { return 0; }
+int rtcSetIceUdpMuxUnhandledStunCallback(int, rtcIceUdpMuxUnhandledStunCallbackFunc) {
+	return RTC_ERR_NOT_AVAIL;
+}
+#endif
 
 int rtcGetMaxDataChannelStream(int pc) {
 	return wrap([&] {

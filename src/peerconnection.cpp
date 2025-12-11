@@ -167,6 +167,27 @@ void PeerConnection::setLocalDescription(Description::Type type, LocalDescriptio
 	}
 }
 
+void PeerConnection::setIceAttributes(string iceUfrag, string icePwd) {
+	// Validate ICE attributes before attempting to set them
+	// libjuice requires: ufrag >= 4 chars, pwd >= 22 chars, and no invalid characters
+	if (iceUfrag.length() < 4)
+		throw std::invalid_argument("ICE ufrag must be at least 4 characters");
+	if (icePwd.length() < 22) {
+		// libjuice requires password to be at least 22 characters
+		// For WebRTC Direct, password equals ufrag, which might be short
+		// We can't set ICE attributes in this case - the SDP will need to be modified after generation
+		PLOG_WARNING << "ICE password is too short (" << icePwd.length() << " chars), minimum is 22. "
+		            << "Cannot set ICE attributes via libjuice API. SDP will need to be modified after generation.";
+		throw std::invalid_argument("ICE pwd must be at least 22 characters (got " + std::to_string(icePwd.length()) + ")");
+	}
+	
+	auto iceTransport = impl()->initIceTransport();
+	if (!iceTransport)
+		throw std::runtime_error("ICE transport not initialized");
+	
+	iceTransport->setIceAttributes(iceUfrag, icePwd);
+}
+
 void PeerConnection::gatherLocalCandidates(std::vector<IceServer> additionalIceServers) {
 	auto iceTransport = impl()->getIceTransport();
 	if (!iceTransport || !localDescription())
