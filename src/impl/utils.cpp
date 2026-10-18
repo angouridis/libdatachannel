@@ -138,7 +138,8 @@ std::seed_seq random_seed() {
 	seed.push_back(
 	    static_cast<unsigned int>(std::hash<std::thread::id>{}(std::this_thread::get_id())));
 
-	return {seed.begin(), seed.end()};
+	// Explicit ctor: MSVC 2019 mis-parses brace-init as initializer_list of iterators
+	return std::seed_seq(seed.begin(), seed.end());
 }
 
 uint64_t ntp_time() {
