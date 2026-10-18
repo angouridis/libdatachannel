@@ -468,12 +468,6 @@ int rtcCreatePeerConnection(const rtcConfiguration *config) {
 		}
 
 		c.certificateType = static_cast<CertificateType>(config->certificateType);
-		if (config->certificatePemFile)
-			c.certificatePemFile = string(config->certificatePemFile);
-		if (config->keyPemFile)
-			c.keyPemFile = string(config->keyPemFile);
-		if (config->keyPemPass)
-			c.keyPemPass = string(config->keyPemPass);
 		c.iceTransportPolicy = static_cast<TransportPolicy>(config->iceTransportPolicy);
 		c.enableIceTcp = config->enableIceTcp;
 		c.enableIceUdpMux = config->enableIceUdpMux;
@@ -767,6 +761,18 @@ int rtcGetRemoteAddress(int pc, char *buffer, int size) {
 			return copyAndReturn(std::move(*addr), buffer, size);
 		else
 			return RTC_ERR_NOT_AVAIL;
+	});
+}
+
+int rtcGetRemoteFingerprint(int pc, char *buffer, int size) {
+	return wrap([&] {
+		auto fingerprint = getPeerConnection(pc)->remoteFingerprint();
+		if (!fingerprint.isValid())
+			return RTC_ERR_NOT_AVAIL;
+
+		auto formatted = CertificateFingerprint::AlgorithmIdentifier(fingerprint.algorithm) + " " +
+		                 fingerprint.value;
+		return copyAndReturn(formatted, buffer, size);
 	});
 }
 
