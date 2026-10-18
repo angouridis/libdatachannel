@@ -182,6 +182,12 @@ typedef struct {
 typedef void(RTC_API *rtcFrameCallbackFunc)(int tr, const char *data, int size,
                                             const rtcFrameInfo *info, void *ptr);
 
+// ICE UDP mux listener (libjuice only)
+typedef void(RTC_API *rtcIceUdpMuxUnhandledStunCallbackFunc)(int listener, const char *localUfrag,
+                                                            const char *remoteUfrag,
+                                                            const char *remoteAddress,
+                                                            uint16_t remotePort, void *ptr);
+
 // Log
 
 // NULL cb on the first call will log to stdout
@@ -233,6 +239,7 @@ RTC_C_EXPORT int rtcSetSignalingStateChangeCallback(int pc, rtcSignalingStateCal
 RTC_C_EXPORT int rtcSetLocalDescription(int pc, const char *type); // type may be NULL
 RTC_C_EXPORT int rtcSetLocalDescriptionEx(int pc, const char *type,
                                           const rtcLocalDescriptionInit *init);
+RTC_C_EXPORT int rtcSetIceAttributes(int pc, const char *iceUfrag, const char *icePwd); // Set ICE attributes directly without generating local description
 RTC_C_EXPORT int rtcSetRemoteDescription(int pc, const char *sdp, const char *type);
 RTC_C_EXPORT int rtcAddRemoteCandidate(int pc, const char *cand, const char *mid);
 
@@ -253,6 +260,14 @@ RTC_C_EXPORT int rtcGetSelectedCandidatePair(int pc, char *local, int localSize,
                                              int remoteSize);
 
 RTC_C_EXPORT bool rtcIsNegotiationNeeded(int pc);
+
+// ICE UDP mux listener (libjuice only)
+RTC_C_EXPORT int rtcCreateIceUdpMuxListener(uint16_t port, const char *bindAddress); // returns listener id
+RTC_C_EXPORT int rtcDeleteIceUdpMuxListener(int listener);
+RTC_C_EXPORT int rtcIceUdpMuxListenerStop(int listener);
+RTC_C_EXPORT uint16_t rtcGetIceUdpMuxListenerPort(int listener);
+RTC_C_EXPORT int rtcSetIceUdpMuxUnhandledStunCallback(int listener,
+                                                     rtcIceUdpMuxUnhandledStunCallbackFunc cb);
 
 RTC_C_EXPORT int rtcGetMaxDataChannelStream(int pc);
 RTC_C_EXPORT int rtcGetRemoteMaxMessageSize(int pc);
